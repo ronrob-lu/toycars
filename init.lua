@@ -1,16 +1,21 @@
 -- toy_cars mod for Luanti (Minetest)
 -- Adds non-controllable miniature NPC toy cars to the world
 
-local MODELS = {
-	"vehicle-drag-racer.obj",
-	"vehicle-monster-truck.obj",
-	"vehicle-racer-low.obj",
-	"vehicle-racer.obj",
-	"vehicle-speedster.obj",
-	"vehicle-suv.obj",
-	"vehicle-truck.obj",
-	"vehicle-vintage-racer.obj",
+local VEHICLES = {
+	{ id = "drag_racer", name = "Drag Racer", model = "vehicle-drag-racer.obj", texture = "vehicle-drag-racer.png" },
+	{ id = "monster_truck", name = "Monster Truck", model = "vehicle-monster-truck.obj", texture = "vehicle-monster-truck.png" },
+	{ id = "racer_low", name = "Racer Low", model = "vehicle-racer-low.obj", texture = "vehicle-racer-low.png" },
+	{ id = "racer", name = "Racer", model = "vehicle-racer.obj", texture = "vehicle-racer.png" },
+	{ id = "speedster", name = "Speedster", model = "vehicle-speedster.obj", texture = "vehicle-speedster.png" },
+	{ id = "suv", name = "SUV", model = "vehicle-suv.obj", texture = "vehicle-suv.png" },
+	{ id = "truck", name = "Truck", model = "vehicle-truck.obj", texture = "vehicle-truck.png" },
+	{ id = "vintage_racer", name = "Vintage Racer", model = "vehicle-vintage-racer.obj", texture = "vehicle-vintage-racer.png" },
 }
+
+local MODELS = {}
+for _, v in ipairs(VEHICLES) do
+	table.insert(MODELS, v.model)
+end
 
 local CARDINALS = {
 	0,                  -- +Z
@@ -254,8 +259,8 @@ minetest.register_globalstep(function(dtime)
 	local ppos = player:get_pos()
 	if not ppos then return end
 
-	for _ = 1, 5 do
-		local dist = math.random(20, 80)
+	for _ = 1, 10 do
+		local dist = math.random(10, 45)
 		local angle = math.random() * 2 * math.pi
 		local sx = ppos.x + dist * math.sin(angle)
 		local sz = ppos.z + dist * math.cos(angle)
@@ -294,19 +299,15 @@ minetest.register_globalstep(function(dtime)
 			local dist_ok = true
 			for _, p in ipairs(players) do
 				local pos = p:get_pos()
-				if pos and vector.distance(pos, spawn_pos) < 20 then
+				if pos and vector.distance(pos, spawn_pos) < 8 then
 					dist_ok = false
 					break
 				end
 			end
 
 			if dist_ok then
-				local eye_pos = {x = ppos.x, y = ppos.y + 1.5, z = ppos.z}
-				local los_clear = minetest.line_of_sight(eye_pos, spawn_pos)
-				if not los_clear then
-					minetest.add_entity(spawn_pos, "toy_cars:car")
-					break
-				end
+				minetest.add_entity(spawn_pos, "toy_cars:car")
+				break
 			end
 		end
 	end
@@ -372,3 +373,36 @@ minetest.register_chatcommand("clear_cars", clear_cmd_def)
 minetest.register_chatcommand("clear_all_cars", clear_cmd_def)
 minetest.register_chatcommand("delete_cars", clear_cmd_def)
 minetest.register_chatcommand("remove_cars", clear_cmd_def)
+
+-- Register Spawn Eggs for each Vehicle
+for _, v in ipairs(VEHICLES) do
+	minetest.register_craftitem("toy_cars:spawn_egg_" .. v.id, {
+		description = "Toy " .. v.name .. " Spawn Egg",
+		inventory_image = v.texture,
+		on_place = function(itemstack, placer, pointed_thing)
+			if pointed_thing.type ~= "node" then
+				return itemstack
+			end
+
+			local pos = pointed_thing.above
+			local player_name = placer and placer:is_player() and placer:get_player_name() or ""
+			if minetest.is_protected and minetest.is_protected(pos, player_name) then
+				return itemstack
+			end
+
+			local spawn_pos = {x = pos.x, y = pos.y + 0.1, z = pos.z}
+			local staticdata = minetest.serialize({
+				model = v.model,
+			})
+			local obj = minetest.add_entity(spawn_pos, "toy_cars:car", staticdata)
+
+			if obj then
+				local creative = minetest.is_creative_enabled and player_name ~= "" and minetest.is_creative_enabled(player_name)
+				if not creative then
+					itemstack:take_item()
+				end
+			end
+			return itemstack
+		end,
+	})
+end
