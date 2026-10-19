@@ -55,28 +55,25 @@ local function is_walkable(pos)
 	return def and def.walkable or false
 end
 
-local function is_obstacle_ahead(pos, yaw)
+local function is_obstacle_ahead(pos, yaw, stepheight)
+	stepheight = stepheight or 2.0
 	local dir = get_dir_vector(yaw)
-	-- Check ground level step and head level block in front
-	local front_step = {
-		x = pos.x + dir.x * 6.0,
-		y = pos.y + 3.0,
-		z = pos.z + dir.z * 6.0,
+	-- Check wall position directly in front of the car above stepheight
+	local lookahead_dist = 3.0
+	local front_wall = {
+		x = pos.x + dir.x * lookahead_dist,
+		y = pos.y + stepheight + 0.5,
+		z = pos.z + dir.z * lookahead_dist,
 	}
-	local front_head = {
-		x = pos.x + dir.x * 6.0,
-		y = pos.y + 8.0,
-		z = pos.z + dir.z * 6.0,
-	}
-	return is_walkable(front_step) or is_walkable(front_head)
+	return is_walkable(front_wall)
 end
 
-local function choose_new_direction(pos, current_yaw)
+local function choose_new_direction(pos, current_yaw, stepheight)
 	local left_yaw = (current_yaw + math.pi / 2) % (2 * math.pi)
 	local right_yaw = (current_yaw - math.pi / 2) % (2 * math.pi)
 
-	local left_blocked = is_obstacle_ahead(pos, left_yaw)
-	local right_blocked = is_obstacle_ahead(pos, right_yaw)
+	local left_blocked = is_obstacle_ahead(pos, left_yaw, stepheight)
+	local right_blocked = is_obstacle_ahead(pos, right_yaw, stepheight)
 
 	if not left_blocked and right_blocked then
 		return left_yaw
@@ -127,7 +124,7 @@ minetest.register_entity("toy_cars:car", {
 			mesh = self.model,
 			textures = {"colormap.png"},
 		})
-		self.object:set_yaw(self.move_yaw + math.pi)
+		self.object:set_yaw(self.move_yaw)
 		self.stuck_timer = 0
 		self.fall_start_y = nil
 	end,
@@ -154,7 +151,7 @@ minetest.register_entity("toy_cars:car", {
 
 		local vel = self.object:get_velocity() or {x = 0, y = 0, z = 0}
 
-		-- Pit & Fall Protection
+		-- Pit & Fall Protection (despawn if falling out of world)
 		if vel.y < -1.5 then
 			if not self.fall_start_y then
 				self.fall_start_y = pos.y
@@ -178,12 +175,12 @@ minetest.register_entity("toy_cars:car", {
 
 		-- Traffic & Entity Obstacle Avoidance
 		local lookahead_pos = {
-			x = pos.x + dir.x * 8.0,
-			y = pos.y + 2.0,
-			z = pos.z + dir.z * 8.0,
+			x = pos.x + dir.x * 4.0,
+			y = pos.y + 1.0,
+			z = pos.z + dir.z * 4.0,
 		}
 
-		local objects_ahead = minetest.get_objects_inside_radius(lookahead_pos, 6.0)
+		local objects_ahead = minetest.get_objects_inside_radius(lookahead_pos, 3.0)
 		local traffic_stop = false
 
 		for _, obj in ipairs(objects_ahead) do
@@ -203,30 +200,32 @@ minetest.register_entity("toy_cars:car", {
 
 		if traffic_stop then
 			-- Stop and wait patiently
-			self.object:set_velocity({x = 0, y = vel.y, z = 0})
+			self.object:set_velocity({x = 0, y = math.min(vel.y, 0), z = 0})
 			self.stuck_timer = 0
 			return
 		end
 
 		-- Terrain Obstacle & Wall Avoidance
-		if is_obstacle_ahead(pos, self.move_yaw) then
-			self.move_yaw = choose_new_direction(pos, self.move_yaw)
-			self.object:set_yaw(self.move_yaw + math.pi)
+		local stepheight = 2.0
+		if is_obstacle_ahead(pos, self.move_yaw, stepheight) then
+			self.move_yaw = choose_new_direction(pos, self.move_yaw, stepheight)
+			self.object:set_yaw(self.move_yaw)
 			dir = get_dir_vector(self.move_yaw)
 			self.stuck_timer = 0
 		end
 
 		-- Apply movement speed (2.5 nodes/sec)
 		local speed = 2.5
-		self.object:set_velocity({x = dir.x * speed, y = vel.y, z = dir.z * speed})
+		local y_vel = math.min(vel.y, 0)
+		self.object:set_velocity({x = dir.x * speed, y = y_vel, z = dir.z * speed})
 
 		-- Stuck Detection Timer (> 1.0 second low velocity)
 		local h_speed = math.sqrt(vel.x * vel.x + vel.z * vel.z)
 		if h_speed < 0.2 then
 			self.stuck_timer = (self.stuck_timer or 0) + dtime
 			if self.stuck_timer > 1.0 then
-				self.move_yaw = choose_new_direction(pos, self.move_yaw)
-				self.object:set_yaw(self.move_yaw + math.pi)
+				self.move_yaw = choose_new_direction(pos, self.move_yaw, stepheight)
+				self.object:set_yaw(self.move_yaw)
 				self.stuck_timer = 0
 			end
 		else
@@ -235,114 +234,66 @@ minetest.register_entity("toy_cars:car", {
 	end,
 })
 
--- Dynamic Spawning Loop (~every 3s)
-local spawn_timer = 0
-minetest.register_globalstep(function(dtime)
-	spawn_timer = spawn_timer + dtime
-	if spawn_timer < 3.0 then
-		return
-	end
-	spawn_timer = 0
+-- Register Toy Car Spawner Block
+minetest.register_node("toy_cars:spawner", {
+	description = "Toy Car Spawner",
+	tiles = {"toy_cars_spawner.png"},
+	groups = {cracky = 2, oddly_breakable_by_hand = 2},
+	paramtype = "light",
+	sunlight_propagates = true,
 
-	local max_cars = tonumber(minetest.settings:get("toy_cars_max_cars")) or 100
-	local current_cars = count_active_cars()
-	if current_cars >= max_cars then
-		return
-	end
+	on_construct = function(pos)
+		local timer = minetest.get_node_timer(pos)
+		timer:start(5.0)
+	end,
 
-	local players = minetest.get_connected_players()
-	if #players == 0 then
-		return
-	end
+	on_timer = function(pos, elapsed)
+		local spawn_pos = {x = pos.x, y = pos.y + 1.0, z = pos.z}
 
-	local player = players[math.random(#players)]
-	local ppos = player:get_pos()
-	if not ppos then return end
-
-	for _ = 1, 10 do
-		local dist = math.random(10, 45)
-		local angle = math.random() * 2 * math.pi
-		local sx = ppos.x + dist * math.sin(angle)
-		local sz = ppos.z + dist * math.cos(angle)
-
-		local found_y = nil
-		local start_y = math.floor(ppos.y) + 10
-		local end_y = math.floor(ppos.y) - 15
-
-		for y = start_y, end_y, -1 do
-			local p_ground = {x = math.floor(sx) + 0.5, y = y, z = math.floor(sz) + 0.5}
-			local p_above1 = {x = math.floor(sx) + 0.5, y = y + 1, z = math.floor(sz) + 0.5}
-			local p_above2 = {x = math.floor(sx) + 0.5, y = y + 2, z = math.floor(sz) + 0.5}
-
-			local node_ground = minetest.get_node_or_nil(p_ground)
-			local node_above1 = minetest.get_node_or_nil(p_above1)
-			local node_above2 = minetest.get_node_or_nil(p_above2)
-
-			if node_ground and node_above1 and node_above2 then
-				local def_ground = minetest.registered_nodes[node_ground.name]
-				local def_above1 = minetest.registered_nodes[node_above1.name]
-				local def_above2 = minetest.registered_nodes[node_above2.name]
-
-				if def_ground and def_ground.walkable
-				   and def_above1 and not def_above1.walkable and not def_above1.liquidtype
-				   and def_above2 and not def_above2.walkable and not def_above2.liquidtype
-				   and node_ground.name ~= "ignore" then
-					found_y = y + 0.5
-					break
-				end
+		-- Check if node above spawner is free
+		local node_above = minetest.get_node_or_nil(spawn_pos)
+		if node_above then
+			local def = minetest.registered_nodes[node_above.name]
+			if def and def.walkable then
+				return true -- space blocked, retry next tick
 			end
 		end
 
-		if found_y then
-			local spawn_pos = {x = math.floor(sx) + 0.5, y = found_y + 0.1, z = math.floor(sz) + 0.5}
-
-			local dist_ok = true
-			for _, p in ipairs(players) do
-				local pos = p:get_pos()
-				if pos and vector.distance(pos, spawn_pos) < 8 then
-					dist_ok = false
-					break
-				end
-			end
-
-			if dist_ok then
-				minetest.add_entity(spawn_pos, "toy_cars:car")
-				break
+		-- Check existing toy cars in 15 node radius
+		local nearby_objects = minetest.get_objects_inside_radius(pos, 15.0)
+		local car_count = 0
+		for _, obj in ipairs(nearby_objects) do
+			local ent = obj:get_luaentity()
+			if ent and ent.name == "toy_cars:car" then
+				car_count = car_count + 1
 			end
 		end
-	end
-end)
 
--- Periodic Despawning Loop (~every 2s)
-local despawn_timer = 0
-minetest.register_globalstep(function(dtime)
-	despawn_timer = despawn_timer + dtime
-	if despawn_timer < 2.0 then
-		return
-	end
-	despawn_timer = 0
-
-	local players = minetest.get_connected_players()
-	for obj, _ in pairs(active_cars) do
-		if obj and obj:get_pos() then
-			local pos = obj:get_pos()
-			local near_player = false
-			for _, player in ipairs(players) do
-				local ppos = player:get_pos()
-				if ppos and vector.distance(ppos, pos) <= 150 then
-					near_player = true
-					break
-				end
-			end
-			if not near_player then
-				obj:remove()
-				active_cars[obj] = nil
-			end
-		else
-			active_cars[obj] = nil
+		if car_count < 2 then
+			local chosen_model = MODELS[math.random(#MODELS)]
+			local chosen_yaw = CARDINALS[math.random(#CARDINALS)]
+			local staticdata = minetest.serialize({
+				model = chosen_model,
+				move_yaw = chosen_yaw,
+			})
+			minetest.add_entity(spawn_pos, "toy_cars:car", staticdata)
 		end
-	end
-end)
+
+		return true
+	end,
+})
+
+-- Craft Recipe for Spawner Block (if default mod exists)
+if minetest.get_modpath("default") then
+	minetest.register_craft({
+		output = "toy_cars:spawner",
+		recipe = {
+			{"default:steel_ingot", "default:glass", "default:steel_ingot"},
+			{"default:steel_ingot", "toy_cars:spawn_egg_racer", "default:steel_ingot"},
+			{"default:steel_ingot", "default:steel_ingot", "default:steel_ingot"},
+		}
+	})
+end
 
 -- Admin Cleanup Chatcommands
 local clear_cmd_def = {
