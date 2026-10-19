@@ -40,9 +40,9 @@ end
 
 local function get_dir_vector(yaw)
 	return {
-		x = math.sin(yaw),
+		x = -math.sin(yaw),
 		y = 0,
-		z = math.cos(yaw),
+		z = -math.cos(yaw),
 	}
 end
 
