@@ -13,9 +13,9 @@ A Luanti (Minetest) mod that spawns autonomous, non-controllable NPC toy cars in
   - **Terrain Obstacle Avoidance**: Inspects nodes ahead and turns 90 degrees left or right when encountering walls or obstacles (> 0.5 blocks high).
   - **Stuck Detection**: Detects when movement is blocked (< 0.2 speed for > 1.0 second) and turns to find an open path.
   - **Pit & Fall Protection**: Despawns toy cars if they fall into deep ravines or pits (> 3.5 nodes fall distance) to prevent lag and pileups.
+- **Spawn Eggs**: Craft items available for each vehicle type (`toy_cars:spawn_egg_<type>`), using the corresponding vehicle PNG image as inventory icon. Right-click on a node to manually spawn that specific toy car model.
 - **Dynamic Spawning & Visibility**:
-  - Dynamically spawns toy cars in a ring around online players (20 to 80 blocks away) on solid walkable ground.
-  - Enforces out-of-line-of-sight spawning (`minetest.line_of_sight`) and minimum player distance (> 20 nodes) to avoid visible pop-in.
+  - Dynamically spawns toy cars in a ring around online players (10 to 45 blocks away) on solid walkable ground.
 - **Automatic Despawning**:
   - Periodically checks distance to online players and despawns any toy car farther than 150 blocks from all players.
 - **One-Punch Destroy**:
