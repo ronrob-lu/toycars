@@ -59,14 +59,14 @@ local function is_obstacle_ahead(pos, yaw)
 	local dir = get_dir_vector(yaw)
 	-- Check ground level step and head level block in front
 	local front_step = {
-		x = pos.x + dir.x * 0.6,
-		y = pos.y + 0.3,
-		z = pos.z + dir.z * 0.6,
+		x = pos.x + dir.x * 6.0,
+		y = pos.y + 3.0,
+		z = pos.z + dir.z * 6.0,
 	}
 	local front_head = {
-		x = pos.x + dir.x * 0.6,
-		y = pos.y + 0.8,
-		z = pos.z + dir.z * 0.6,
+		x = pos.x + dir.x * 6.0,
+		y = pos.y + 8.0,
+		z = pos.z + dir.z * 6.0,
 	}
 	return is_walkable(front_step) or is_walkable(front_head)
 end
@@ -94,12 +94,12 @@ minetest.register_entity("toy_cars:car", {
 	initial_properties = {
 		physical = true,
 		collide_with_objects = true,
-		collisionbox = {-0.25, 0.0, -0.25, 0.25, 0.35, 0.25},
+		collisionbox = {-2.5, 0.0, -2.5, 2.5, 3.5, 2.5},
 		visual = "mesh",
 		mesh = MODELS[1],
 		textures = {"colormap.png"},
-		visual_size = {x = 0.5, y = 0.5, z = 0.5},
-		stepheight = 0.2,
+		visual_size = {x = 5.0, y = 5.0, z = 5.0},
+		stepheight = 2.0,
 		hp_max = 1,
 		armor_groups = {fleshy = 100},
 	},
@@ -160,7 +160,7 @@ minetest.register_entity("toy_cars:car", {
 				self.fall_start_y = pos.y
 			end
 			local fall_dist = self.fall_start_y - pos.y
-			if fall_dist > 3.5 then
+			if fall_dist > 35.0 then
 				active_cars[self.object] = nil
 				self.object:remove()
 				return
@@ -178,12 +178,12 @@ minetest.register_entity("toy_cars:car", {
 
 		-- Traffic & Entity Obstacle Avoidance
 		local lookahead_pos = {
-			x = pos.x + dir.x * 0.8,
-			y = pos.y + 0.2,
-			z = pos.z + dir.z * 0.8,
+			x = pos.x + dir.x * 8.0,
+			y = pos.y + 2.0,
+			z = pos.z + dir.z * 8.0,
 		}
 
-		local objects_ahead = minetest.get_objects_inside_radius(lookahead_pos, 0.6)
+		local objects_ahead = minetest.get_objects_inside_radius(lookahead_pos, 6.0)
 		local traffic_stop = false
 
 		for _, obj in ipairs(objects_ahead) do

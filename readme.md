@@ -4,15 +4,15 @@ A Luanti (Minetest) mod that spawns autonomous, non-controllable NPC toy cars in
 
 ## Features
 
-- **Half-Block Miniature Scale**: Toy cars are scaled to approximately 0.5 × 0.5 × 0.5 nodes (`visual_size = {x = 0.5, y = 0.5, z = 0.5}`, `collisionbox = {-0.25, 0.0, -0.25, 0.25, 0.35, 0.25}`).
-- **Low Step Height**: `stepheight = 0.2` prevents toy cars from driving over full 1-block steps or large obstacles, behaving like real miniature toy vehicles.
+- **Large Vehicle Scale**: Toy cars are scaled to 5.0 × 5.0 × 5.0 nodes (`visual_size = {x = 5.0, y = 5.0, z = 5.0}`, `collisionbox = {-2.5, 0.0, -2.5, 2.5, 3.5, 2.5}`).
+- **Step Height**: `stepheight = 2.0` allows cars to step up obstacles up to 2 nodes high.
 - **Randomized Models**: Automatically selects randomly from 8 provided 3D vehicle models (`vehicle-drag-racer.obj`, `vehicle-monster-truck.obj`, `vehicle-racer-low.obj`, `vehicle-racer.obj`, `vehicle-speedster.obj`, `vehicle-suv.obj`, `vehicle-truck.obj`, `vehicle-vintage-racer.obj`) using shared color textures (`colormap.png`).
 - **Autonomous AI & Movement**:
   - Moves along cardinal horizontal axes.
   - **Traffic Avoidance**: Stops and waits when players or other toy cars are directly ahead.
   - **Terrain Obstacle Avoidance**: Inspects nodes ahead and turns 90 degrees left or right when encountering walls or obstacles (> 0.5 blocks high).
   - **Stuck Detection**: Detects when movement is blocked (< 0.2 speed for > 1.0 second) and turns to find an open path.
-  - **Pit & Fall Protection**: Despawns toy cars if they fall into deep ravines or pits (> 3.5 nodes fall distance) to prevent lag and pileups.
+  - **Pit & Fall Protection**: Despawns toy cars if they fall into deep ravines or pits (> 35 nodes fall distance) to prevent lag and pileups.
 - **Spawn Eggs**: Craft items available for each vehicle type (`toy_cars:spawn_egg_<type>`), using the corresponding vehicle PNG image as inventory icon. Right-click on a node to manually spawn that specific toy car model.
 - **Dynamic Spawning & Visibility**:
   - Dynamically spawns toy cars in a ring around online players (10 to 45 blocks away) on solid walkable ground.
